@@ -7,19 +7,22 @@
 //!
 //! ```rust
 //! # use core::sync::atomic::{AtomicBool, Ordering};
-//! # use embedded_hal::digital::v2::OutputPin;
+//! # use embedded_hal::digital::{ErrorType, OutputPin};
 //! #
 //! # struct FakeGpio {
 //! #     state: &'static AtomicBool,
 //! # }
 //! #
+//! # impl ErrorType for FakeGpio {
+//! #     type Error = core::convert::Infallible;
+//! # }
+//! #
 //! # impl OutputPin for FakeGpio {
-//! #     type Error = ();
-//! #     fn set_low(&mut self) -> Result<(), ()> {
+//! #     fn set_low(&mut self) -> Result<(), Self::Error> {
 //! #         self.state.store(false, Ordering::SeqCst);
 //! #         Ok(())
 //! #     }
-//! #     fn set_high(&mut self) -> Result<(), ()> {
+//! #     fn set_high(&mut self) -> Result<(), Self::Error> {
 //! #         self.state.store(true, Ordering::SeqCst);
 //! #         Ok(())
 //! #     }
@@ -153,19 +156,22 @@ impl Pattern {
 ///
 /// ```rust
 /// # use core::sync::atomic::{AtomicBool, Ordering};
-/// # use embedded_hal::digital::v2::OutputPin;
+/// # use embedded_hal::digital::{ErrorType, OutputPin};
 /// #
 /// # struct FakeGpio {
 /// #     state: &'static AtomicBool,
 /// # }
 /// #
+/// # impl ErrorType for FakeGpio {
+/// #     type Error = core::convert::Infallible;
+/// # }
+/// #
 /// # impl OutputPin for FakeGpio {
-/// #     type Error = ();
-/// #     fn set_low(&mut self) -> Result<(), ()> {
+/// #     fn set_low(&mut self) -> Result<(), Self::Error> {
 /// #         self.state.store(false, Ordering::SeqCst);
 /// #         Ok(())
 /// #     }
-/// #     fn set_high(&mut self) -> Result<(), ()> {
+/// #     fn set_high(&mut self) -> Result<(), Self::Error> {
 /// #         self.state.store(true, Ordering::SeqCst);
 /// #         Ok(())
 /// #     }
@@ -346,6 +352,7 @@ where
 mod tests {
     use super::*;
     use crate::patterns::morse::SOS;
+    use embedded_hal::digital::ErrorType;
 
     use core::sync::atomic::{AtomicBool, Ordering};
 
@@ -353,13 +360,16 @@ mod tests {
         state: &'static AtomicBool,
     }
 
+    impl ErrorType for FakeGpio {
+        type Error = core::convert::Infallible;
+    }
+
     impl OutputPin for FakeGpio {
-        type Error = ();
-        fn set_low(&mut self) -> Result<(), ()> {
+        fn set_low(&mut self) -> Result<(), Self::Error> {
             self.state.store(false, Ordering::SeqCst);
             Ok(())
         }
-        fn set_high(&mut self) -> Result<(), ()> {
+        fn set_high(&mut self) -> Result<(), Self::Error> {
             self.state.store(true, Ordering::SeqCst);
             Ok(())
         }
