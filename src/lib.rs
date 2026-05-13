@@ -7,19 +7,19 @@
 //!
 //! ```rust
 //! # use core::sync::atomic::{AtomicBool, Ordering};
-//! # use embedded_hal::digital::v2::OutputPin;
+//! # use switch_hal::OutputSwitch;
 //! #
 //! # struct FakeGpio {
 //! #     state: &'static AtomicBool,
 //! # }
 //! #
-//! # impl OutputPin for FakeGpio {
+//! # impl OutputSwitch for FakeGpio {
 //! #     type Error = ();
-//! #     fn set_low(&mut self) -> Result<(), ()> {
+//! #     fn off(&mut self) -> Result<(), ()> {
 //! #         self.state.store(false, Ordering::SeqCst);
 //! #         Ok(())
 //! #     }
-//! #     fn set_high(&mut self) -> Result<(), ()> {
+//! #     fn on(&mut self) -> Result<(), ()> {
 //! #         self.state.store(true, Ordering::SeqCst);
 //! #         Ok(())
 //! #     }
@@ -30,10 +30,10 @@
 //! #
 //! use blinq::{Pattern, Blinq, patterns};
 //!
-//! // Create a blink queue with room for 8 patterns, that is active-low.
+//! // Create a blink queue with room for 8 patterns.
 //! // Note that the queue size must be one larger than the amount of patterns
 //! // that you wish to store!
-//! let mut blinq: Blinq<FakeGpio, 9> = Blinq::new(gpio, true);
+//! let mut blinq: Blinq<FakeGpio, 9> = Blinq::new(gpio);
 //!
 //! // Insert "HELLO." in morse code
 //!
@@ -56,7 +56,7 @@
 
 #![cfg_attr(not(test), no_std)]
 
-use embedded_hal::digital::v2::OutputPin;
+use switch_hal::OutputSwitch;
 
 use heapless::spsc::Queue;
 
@@ -146,26 +146,26 @@ impl Pattern {
 
 /// A blinking queue
 ///
-/// This takes an embedded-hal OutputPin, and drives it based on
+/// This takes a switch-hal OutputSwitch, and drives it based on
 /// given patterns on each step.
 ///
 /// ## Example
 ///
 /// ```rust
 /// # use core::sync::atomic::{AtomicBool, Ordering};
-/// # use embedded_hal::digital::v2::OutputPin;
+/// # use switch_hal::OutputSwitch;
 /// #
 /// # struct FakeGpio {
 /// #     state: &'static AtomicBool,
 /// # }
 /// #
-/// # impl OutputPin for FakeGpio {
+/// # impl OutputSwitch for FakeGpio {
 /// #     type Error = ();
-/// #     fn set_low(&mut self) -> Result<(), ()> {
+/// #     fn off(&mut self) -> Result<(), ()> {
 /// #         self.state.store(false, Ordering::SeqCst);
 /// #         Ok(())
 /// #     }
-/// #     fn set_high(&mut self) -> Result<(), ()> {
+/// #     fn on(&mut self) -> Result<(), ()> {
 /// #         self.state.store(true, Ordering::SeqCst);
 /// #         Ok(())
 /// #     }
@@ -176,10 +176,10 @@ impl Pattern {
 /// #
 /// use blinq::{Pattern, Blinq, patterns};
 ///
-/// // Create a blink queue with room for 8 patterns, that is active-low
+/// // Create a blink queue with room for 8 patterns.
 /// // Note that the queue size must be one larger than the amount of patterns
 /// // that you wish to store!
-/// let mut blinq: Blinq<FakeGpio, 9> = Blinq::new(gpio, true);
+/// let mut blinq: Blinq<FakeGpio, 9> = Blinq::new(gpio);
 ///
 /// // Insert "HELLO." in morse code
 ///
@@ -201,36 +201,30 @@ impl Pattern {
 /// ```
 pub struct Blinq<G, const N: usize>
 where
-    G: OutputPin,
+    G: OutputSwitch,
 {
     current: Option<Pattern>,
     queue: Queue<Pattern, N>,
     step: u8,
     gpio: G,
-    active_low: bool,
 }
 
 impl<G, const N: usize> Blinq<G, N>
 where
-    G: OutputPin,
+    G: OutputSwitch,
 {
     /// Create a new Blinq with the given GPIO
     ///
     /// The GPIO will be driven to the "inactive" state
     /// on creation
-    pub fn new(mut gpio: G, active_low: bool) -> Self {
-        if active_low {
-            gpio.set_high().ok();
-        } else {
-            gpio.set_low().ok();
-        }
+    pub fn new(mut gpio: G) -> Self {
+        gpio.off().ok();
 
         Self {
             current: None,
             queue: Queue::new(),
             step: 0,
             gpio,
-            active_low,
         }
     }
 
@@ -332,10 +326,10 @@ where
         };
 
         // Drive the GPIO. This should be last, in case errors occur
-        if state ^ self.active_low {
-            self.gpio.set_high()?;
+        if state {
+            self.gpio.on()?;
         } else {
-            self.gpio.set_low()?;
+            self.gpio.off()?;
         }
 
         Ok(())
@@ -353,13 +347,13 @@ mod tests {
         state: &'static AtomicBool,
     }
 
-    impl OutputPin for FakeGpio {
+    impl OutputSwitch for FakeGpio {
         type Error = ();
-        fn set_low(&mut self) -> Result<(), ()> {
+        fn off(&mut self) -> Result<(), ()> {
             self.state.store(false, Ordering::SeqCst);
             Ok(())
         }
-        fn set_high(&mut self) -> Result<(), ()> {
+        fn on(&mut self) -> Result<(), ()> {
             self.state.store(true, Ordering::SeqCst);
             Ok(())
         }
@@ -369,7 +363,7 @@ mod tests {
     fn simple() {
         static STATE: AtomicBool = AtomicBool::new(false);
         let fg = FakeGpio { state: &STATE };
-        let mut stepr: Blinq<FakeGpio, 2> = Blinq::new(fg, false);
+        let mut stepr: Blinq<FakeGpio, 2> = Blinq::new(fg);
         stepr.enqueue(SOS);
 
         stepr.step();
@@ -428,7 +422,7 @@ mod tests {
     fn queued() {
         static STATE: AtomicBool = AtomicBool::new(false);
         let fg = FakeGpio { state: &STATE };
-        let mut stepr: Blinq<FakeGpio, 4> = Blinq::new(fg, false);
+        let mut stepr: Blinq<FakeGpio, 4> = Blinq::new(fg);
         stepr.enqueue(SOS);
         stepr.enqueue(SOS);
         stepr.enqueue(SOS);

@@ -1,7 +1,7 @@
 [package]
 name = "blinq"
 version = "0.2.0"
-description = "An embedded-hal blinking queue"
+description = "A switch-hal blinking queue"
 repository = "https://github.com/jamesmunns/blinq"
 authors = ["James Munns <james.munns@ferrous-systems.com>"]
 edition = "2018"
@@ -15,4 +15,4 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 heapless = "0.7.0"
-embedded-hal = "0.2.4"
+switch-hal = "0.4.0"
