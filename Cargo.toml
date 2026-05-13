@@ -15,4 +15,4 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 heapless = "0.7.0"
-embedded-hal = "0.2.4"
+embedded-hal = "1"

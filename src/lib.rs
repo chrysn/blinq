@@ -56,7 +56,7 @@
 
 #![cfg_attr(not(test), no_std)]
 
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 
 use heapless::spsc::Queue;
 
